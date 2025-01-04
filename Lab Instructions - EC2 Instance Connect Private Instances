@@ -1,0 +1,224 @@
+Lab Instructions - EC2 Instance Connect Private Instances
+*** PLEASE WATCH THE VIDEOS FIRST AND THEN USE THESE INSTRUCTIONS TO COMPLETE THE LAB ***
+
+
+
+Objective:
+
+-> Learn how to connect to a private instance using Instance Connect Endpoints
+
+-> Use browser based login
+
+-> Use SSH
+
+-> Tighten security controls
+
+
+
+Steps - Security Group:
+
+-> Login as myadmin user
+
+-> Create a new Security group for endpoint
+
+    -> Endpoint-Instance-Connect-SG
+
+    -> No need for inbound rules
+
+    -> For outbound rules
+
+        -> Allow SSH traffic only to Instance-SSH-SG
+
+        -> This will ensure we are able to connect to instances that are part of the instance ssh security group
+
+       
+
+-> Update Instance-SSH-SG
+
+    -> Allow SSH access from Endpoint-Instance-Connect-SG
+
+    -> So, we can connect to the instance using the endpoint
+
+
+
+Steps - Deploy an endpoint:
+
+-> Open VPC console
+
+-> Create Endpoint
+
+-> Name: Instance-Connect-Endpoint
+
+-> Select EC2 Instance Connect Endpoint
+
+-> Use default VPC
+
+-> Attach Endpoint-Instance-Connect-SG
+
+-> Use Any subnet
+
+-> Create endpoint
+
+-> This will take around 5 minutes to setup
+
+
+
+Steps - Launch a private EC2 instance:
+
+    - Name: Private Instance
+
+    - Amazon Linux 2 AMI
+
+    - Default VPC
+
+    - Disable Public IP
+
+    - Attach Instance-SSH-SG
+
+    - No Keypairs
+
+   
+
+-> Login from Web console
+
+    - Choose your instance
+
+    - Click Connect
+
+    - Choose EC2 Instance Connect
+
+        - Connect using EC2 Instance Connect Endpoint
+
+    - Select the endpoint to use
+
+        - wait until endpoint is ready
+
+        - Connection succeded
+
+       
+
+    - Create a file test.txt
+
+        - Enter Private instance - logged in using Instance Connect - Browser
+
+        - Save and Exit
+
+       
+
+-> CLI - Login using Single click EC2 Instance connect Option
+
+
+
+    aws ec2-instance-connect ssh --instance-id i-0102b4c6e9f447288 --profile myadmin --region us-west-2
+
+   
+
+    - This also works
+
+   
+
+-> CLI - Show Behind the scenes Action
+
+    -> reuse key pair from previous step
+
+       
+
+    -> Terminal 1 - Open Tunnel
+
+    Linux and MacOS:
+
+   
+
+aws ec2-instance-connect open-tunnel \
+    --instance-id i-05cde41dd4ae02623 \
+    --local-port 8888 --profile myadmin --region us-west-2
+
+
+    Windows:
+
+aws ec2-instance-connect open-tunnel ^
+    --instance-id i-0102b4c6e9f447288 ^
+    --local-port 8888 --profile myadmin --region us-west-2   
+
+
+
+    -> Terminal 2 - Push Public key to the instance using Instance Connect
+
+   
+
+    Linux and MacOS:
+
+    aws ec2-instance-connect send-ssh-public-key \
+    --region us-west-2 \
+    --instance-id i-05cde41dd4ae02623 \
+    --instance-os-user ec2-user \
+    --ssh-public-key file://my_key.pub
+   
+
+    Windows:
+
+    aws ec2-instance-connect send-ssh-public-key ^
+    --region us-west-2 ^
+    --instance-id i-0102b4c6e9f447288 ^
+    --instance-os-user ec2-user ^
+    --ssh-public-key file://my_key.pub ^
+    --profile myadmin
+   
+
+   
+
+    -> Terminal 2 - Connect using SSH
+
+   
+
+    ssh -i my_key ec2-user@localhost -p 8888
+
+             
+
+    -> need to connect within 60 seconds. temporary key access is removed after 60 seconds
+
+   
+
+    -> Show that you cannot login after 60 seconds - you need to push the public key again to login to the instance
+
+   
+
+-> WinSCP as well
+
+   
+
+Summary:
+
+-> We looked at how to connect to a private instance using Instance Connect Endpoint and temporary keypairs
+
+-> Eliminates the need for Bastion Hosts!
+
+-> Multiple connectivity options:
+
+    -> browser based
+
+    -> CLI single click option
+
+    -> CLI traditional tools access
+
+-> We also tightened SG rules
+
+    -> Allows SSH connection from instance connect endpoint SG
+
+    -> Allow outbound connection from endpoint to only instances that are part of a specific SG
+
+    -> This allows you to control which instances allows login using instance connect endpoints
+
+   
+
+-> Further limit access using IAM based access control
+
+    -> Private Instance access is allowed for users who have these IAM privileges
+
+    -> ec2-instance-connect:SendSSHPublicKey action
+
+    -> ec2:DescribeInstances action
+
+    -> ec2-instance-connect:OpenTunnel action
+
+    -> For finegrained access control, you can also add condition to check for tags or specific instance ids
